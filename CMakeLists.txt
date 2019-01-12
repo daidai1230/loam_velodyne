@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.1.3)
 project(loam_velodyne)
 
 find_package(catkin REQUIRED COMPONENTS
@@ -8,36 +8,46 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   std_msgs
-  tf)
+  tf
+  pcl_conversions)
 
-#find_package(Eigen3 REQUIRED)
+find_package(Eigen3 REQUIRED)
 find_package(PCL REQUIRED)
-find_package(OpenCV REQUIRED)
 
 include_directories(
   include
 	${catkin_INCLUDE_DIRS} 
-#	${EIGEN3_INCLUDE_DIR}
+	#${EIGEN3_INCLUDE_DIR}
 	${PCL_INCLUDE_DIRS})
 
 catkin_package(
-  CATKIN_DEPENDS geometry_msgs nav_msgs roscpp rospy std_msgs
-  DEPENDS EIGEN3 PCL OpenCV
+  CATKIN_DEPENDS geometry_msgs nav_msgs roscpp rospy std_msgs tf pcl_conversions
+  DEPENDS EIGEN3 PCL
   INCLUDE_DIRS include
+  LIBRARIES loam
 )
 
+## Compile as C++14, supported in ROS Kinetic and newer
+# set_property(TARGET invz_player PROPERTY CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_executable(scanRegistration src/scanRegistration.cpp)
-target_link_libraries(scanRegistration ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS})
+add_definitions( -march=native )
 
-add_executable(laserOdometry src/laserOdometry.cpp)
-target_link_libraries(laserOdometry ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS})
 
-add_executable(laserMapping src/laserMapping.cpp)
-target_link_libraries(laserMapping ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS})
+add_subdirectory(src/lib)
 
-add_executable(transformMaintenance src/transformMaintenance.cpp)
-target_link_libraries(transformMaintenance ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS})
+add_executable(multiScanRegistration src/multi_scan_registration_node.cpp)
+target_link_libraries(multiScanRegistration ${catkin_LIBRARIES} ${PCL_LIBRARIES} loam )
+
+add_executable(laserOdometry src/laser_odometry_node.cpp)
+target_link_libraries(laserOdometry ${catkin_LIBRARIES} ${PCL_LIBRARIES} loam )
+
+add_executable(laserMapping src/laser_mapping_node.cpp)
+target_link_libraries(laserMapping ${catkin_LIBRARIES} ${PCL_LIBRARIES} loam )
+
+add_executable(transformMaintenance src/transform_maintenance_node.cpp)
+target_link_libraries(transformMaintenance ${catkin_LIBRARIES} ${PCL_LIBRARIES} loam )
 
 if (CATKIN_ENABLE_TESTING)
   find_package(rostest REQUIRED)
@@ -53,7 +63,7 @@ if (CATKIN_ENABLE_TESTING)
   add_rostest(${PROJECT_BINARY_DIR}/test/loam.test
     DEPENDENCIES
       ${PROJECT_NAME}_test_data
-      scanRegistration
+      multiScanRegistration
       laserOdometry
       laserMapping
       transformMaintenance)
